@@ -100,13 +100,90 @@
 
 ​		4.4遍历链表，直到找到相等(==或equals)的 key
 
+**五.扩容和碰撞：**
+
+​	1.当数组中的元素大于阈值。
+
+​	2.当插入时发生碰撞
+
+​	 $\color{red}{二者缺一不可。}$
 
 
 
 
 
 
-​		
+
+# 		ConcurrentHashMap
+
+**一.JDK1.7：**
+
+- CocurrentHashMap 是由 Segment 数组和 HashEntry 数组和链表组成
+- 通过把整个Map分为N个Segment，可以提供相同的线程安全，但是效率提升N倍，默认提升16倍。(读操作不加锁，由于HashEntry的value变量是 volatile的，也能保证读取到最新的值。)
+
+
+- Segment 是基于重入锁（ReentrantLock）：一个数据段竞争锁。每个 HashEntry 一个链表结构的元素，利用 Hash 算法得到索引确定归属的数据段，也就是对应到在修改时需要竞争获取的锁。ConcurrentHashMap 支持 CurrencyLevel（Segment 数组数量）的线程并发。每当一个线程占用锁访问一个 Segment 时，不会影响到其他的 Segment
+- 核心数据如 value，以及链表都是 volatile 修饰的，保证了获取时的可见性
+- 首先是通过 key 定位到 Segment，之后在对应的 Segment 中进行具体的 put 操作如下：
+  - 将当前 Segment 中的 table 通过 key 的 hashcode 定位到 HashEntry。
+  - 遍历该 HashEntry，如果不为空则判断传入的  key 和当前遍历的 key 是否相等，相等则覆盖旧的 value
+  - 不为空则需要新建一个 HashEntry 并加入到 Segment 中，同时会先判断是否需要扩容
+  - 最后会解除在 1 中所获取当前 Segment 的锁。
+- 虽然 HashEntry 中的 value 是用 volatile 关键词修饰的，但是并不能保证并发的原子性，所以 put 操作时仍然需要加锁处理
+
+首先第一步的时候会尝试获取锁，如果获取失败肯定就有其他线程存在竞争，则利用 scanAndLockForPut() 自旋获取锁。
+
+- 尝试自旋获取锁
+- 如果重试的次数达到了 MAX_SCAN_RETRIES 则改为阻塞锁获取，保证能获取成功。最后解除当前 Segment 的锁
+
+
+
+**二.JDK1.8:**
+
+- CocurrentHashMap 是由 数组+链表+红黑树组成
+- CocurrentHashMap 抛弃了原有的 Segment 分段锁，采用了 `CAS + synchronized` 对数组元素加锁来保证并发安全性。其中的 `val next` 都用了 volatile 修饰，保证了可见性。CAS有3个操作数，内存值 V、旧的预期值 A、要修改的新值 B。当且仅当预期值 A 和内存值 V 相同时，将内存值V修改为 B，否则什么都不做。
+
+
+
+
+
+
+
+
+#		TreeMap
+
+1.本质上是一颗红黑树，通过实现了SortMap接口，能够把它保存的键值对根据 key 排序，从而保证 TreeMap 中所有键值对处于有序状态。
+
+2.在TreeMap的put()的实现方法中主要分为两个步骤:
+
+​	2.1 构建**排序二叉树：**
+
+​		2.1.1、以根节点为初始节点进行检索。
+
+​		2.1.2、与当前节点进行比对，若新增节点值较大，则以当前节点的右子节点作为新的当前节点。否则以
+
+​			     当前节点的左子节点作为新的当前节点。
+
+​		2.1.3、循环递归2步骤知道检索出合适的叶子节点为止。
+
+​		2.1.4、将新增节点与3步骤中找到的节点进行比对，如果新增节点较大，则添加为右子节点；否则添加为
+
+​			    左子节点
+
+​	2.2 通过**左旋，右旋，变色**平衡二叉树。
+
+
+
+
+
+# 		
+
+#		LinkedListHashMap
+
+
+1.本质为HashMap+双向链表
+
+2.通过**插入排序**（就是你 put 的时候的顺序是什么，取出来的时候就是什么样子）和**访问排序**（改变排序把访问过的放到底部）让键值有序。
 
  
 
